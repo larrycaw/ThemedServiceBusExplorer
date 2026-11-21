@@ -1,0 +1,34 @@
+name: PR 924 cache smoke
+on:
+  push:
+    branches: [test/pr-924-cache-smoke]
+    paths: [.github/workflows/cache-smoke-pr-924.yml]
+permissions:
+  contents: read
+jobs:
+  build:
+    uses: ./.github/workflows/build-test.yml
+    with:
+      release-version: '0.0.0'
+      cache-build: true
+  restore:
+    needs: build
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - name: Restore the same-commit build cache
+        id: restore
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: src/ServiceBusExplorer/bin/Release
+          key: cached-output-${{ github.sha }}
+          fail-on-cache-miss: true
+      - name: Require an exact hit and the Windows executable
+        shell: pwsh
+        env:
+          CACHE_HIT: ${{ steps.restore.outputs.cache-hit }}
+        run: |
+          if ($env:CACHE_HIT -ne 'true') { throw 'Expected an exact cache hit' }
+          if (-not (Test-Path 'src/ServiceBusExplorer/bin/Release/ServiceBusExplorer.exe')) { throw 'Expected the cached Windows executable' }
